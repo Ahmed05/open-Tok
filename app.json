@@ -1,0 +1,14 @@
+{
+  "name": "open-Tok",
+  "description": "open tok dynamic creation using node js",
+  "scripts": {
+  },
+  "env": {
+  },
+  "addons": [
+
+  ],
+  "buildpacks": [
+
+  ]
+}
