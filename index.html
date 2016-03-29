@@ -9,7 +9,7 @@
 			
     <script src="http://localhost/socket.io/socket.io.js"></script>
 
-	 <script src='http://static.opentok.com/webrtc/v2.2/js/TB.min.js'></script>
+	 <script src='https://static.opentok.com/v2/js/opentok.min.js'></script>
 <body>
 	<div id="links">
 		
@@ -17,14 +17,16 @@
          <input type="button" value="Disconnect" id ="disconnectLink" onClick="javascript:disconnect()" style="display:none" />
          <input type="button" value="Publish" id ="publishLink" onClick="javascript:startPublishing()" style="display:none" />
          <input type="button" value="Unpublish" id ="unpublishLink" onClick="javascript:stopPublishing()" style="display:none" />  
-		 <input type="button" value="Archive" id ="archiveLink" onClick="javascript:startArchive()" style="display:none" />  		 
+		<input type="button" value="startArchive" id ="startArchiveLink" onClick="javascript:startArchive()" style="display:none" /> 		
+		 <input type="button" value="stopArchive" id ="stopArchiveLink" onClick="javascript:stopArchive()" style="display:none" />	
         
   </div>
     <div id="publisherContainer"></div>
   <div id="subscribersContainer"></div>
 	
-</body>
+
 	<title>OpenTok Node.js</title>
+	</head>
 	
 <script>  
   var API_KEY = '45502132';
@@ -36,8 +38,7 @@
 	  var socket = io.connect('http://localhost'); // connec to server
 	  socket.on('session', function (data) { // listen to session event raised by the server
 		//alert(data.sessionId);
-		sessionId = data.sessionId;
-		
+		sessionId = data.sessionId;		
 		socket.emit('session id', { my: 'data' }); // raise an event on the server
 	  });
 	
@@ -45,16 +46,32 @@
   
 
    
-	 
+	
+		
+		
 	  socket.on('token', function (data) { // listen to token event raised by the server
 		//alert(data.Token);
-		token = data.Token;
-		
+		token = data.Token;		
 		socket.emit('token id', { my: 'data' }); // raise an event on the server
 	  });
 	  
 	  
-	  
+function generateToken()
+{	
+	
+	// Generate token
+    $.ajax({
+        type: 'GET',
+		crossDomain : true,
+        url: 'http://127.0.0.1:8081/GenerateToken',
+		success:function(data){
+		alert("msg",data)},		
+		error:function(err){
+		alert("error=",err);
+		}
+    }); 
+}
+	
 	
 //Creating session here
 
@@ -62,88 +79,129 @@ var session;
 var connectionCount = 0;
 
 function connect() {
+console.log("sessionid=="+sessionId);
+console.log("token:"+token);
+	///////////////////////generateToken();
   // Replace apiKey and sessionId with your own values:
   
   session = OT.initSession(API_KEY, sessionId);
-  session.on({
-    connectionCreated: function (event) {
-      connectionCount++;
-      console.log(connectionCount + ' connections.');
+   session.on({
+    sessionDisconnected: function(event) {
+      // The user was disconnected from the Session. Any subscribers
+      // and publishers will automatically be removed from the dom.
+      show('connectLink');
+      hide('disconnectLink');
+      hide('publishLink');
+      hide('unpublishLink');
+      hide('signalLink');
     },
-    connectionDestroyed: function (event) {
-      connectionCount--;
-      console.log(connectionCount + ' connections.');
+    streamCreated: function(event) {
+      // Subscribe to a new third-party stream in the session.
+      console.log('streamCreated');
+      var subOptions = {insertMode: 'append'};
+      session.subscribe(event.stream, 'subscribersContainer', subOptions);
     },
-    sessionDisconnected: function sessionDisconnectHandler(event) {
-      // The event is defined by the SessionDisconnectEvent class
-      console.log('Disconnected from the session.');
-      document.getElementById('disconnectLink').style.display = 'none';
-	  document.getElementById('publishLink').style.display = 'none';
-      if (event.reason == 'networkDisconnected') {
-        alert('Your network connection terminated.')
-      }
+    signal: function(event) {
+      // A signal was received.
+      var signalsDiv = document.getElementById('signals');
+      var messageP = document.createElement('p');
+      messageP.innerHTML = event.data;
+      signalsDiv.appendChild(messageP);
     }
   });
   // Replace token with your own value:
   
   session.connect(token, function(error) {
-    if (error) {
-      console.log('Unable to connect: ', error.message);
-    } else {
-       document.getElementById('disconnectLink').style.display = 'block';
-	   document.getElementById('publishLink').style.display = 'block';
-      console.log('Connected to the session.');
-      connectionCount = 1;
-    }
-  });
+      if (error) {
+        alert(error.message);
+      } else {
+        show('disconnectLink');
+        show('publishLink');
+        show('signalLink');
+        hide('connectLink');
+      }
+    });
 }
 
 function disconnect() {
   session.disconnect();
+   hide('publishLink');
+  hide('startArchiveLink') 
 }
 var publisher;
 function startPublishing()
 {
-	alert("api and sessionid"+API_KEY+"=="+sessionId);
-	var publisherOptions = {
+
+	 var publisherOptions = {
       name: 'A web-based OpenTok client',
       insertMode: 'append'
     };
-	 publisher = OT.initPublisher('publisherContainer', publisherOptions);
+    publisher = OT.initPublisher('publisherContainer', publisherOptions);
     session.publish(publisher, function(error) {
       if (error) {
-        alert("error:"+error.message);
-      }	 	  
-    });	
-	
-	document.getElementById('unpublishLink').style.display = 'block';
-	document.getElementById('archiveLink').style.display = 'block';	 
+        alert(error.message);
+      }
+    });
+    show('unpublishLink');
+    hide('publishLink');
+    show('startArchiveLink') 
 	
 }
 
 function stopPublishing()
 {
-	 session.unpublish(publisher);
-	 document.getElementById('unpublishLink').style.display = 'none';
-	 document.getElementById('archiveLink').style.display = 'none';
+	session.unpublish(publisher);
+    show('publishLink');   
+    hide('unpublishLink');
+	hide('startArchiveLink') 
 	 
 }
 
 function startArchive()
 {
 	
-	socket.on('archive', function (data) { // listen to token event raised by the server
+	socket.on('archiveStart', function (data) { // listen to token event raised by the server
 		alert(data.Archive);
 		archive = data.Archive;
 		
 		socket.emit('token id', { my: 'data' }); // raise an event on the server
 	  });
+	   hide('startArchiveLink');
+	   show('stopArchiveLink');
+	  
 }
 
 
+function stopArchive(){
+ 	socket.on('archiveStop', function (data) { // listen to token event raised by the server
+		alert(data.Archive);
+		archive = data.Archive;
+		
+		socket.emit('token id', { my: 'data' }); // raise an event on the server
+	  }); 
+	 hide('stopArchiveLink');
+	 show('startArchiveLink');
+ }
+
+ //--------------------------------------
+  //  HELPER METHODS
+  //--------------------------------------
+
+  function show(id) {
+	if ( document.getElementById(id) !== null ) {
+		document.getElementById(id).style.display = 'block';
+	}
+  }
+
+  function hide(id) {
+    if ( document.getElementById(id) !== null ) {
+		document.getElementById(id).style.display = 'none';
+	}
+  }
 			
 </script>
-</head>
+</body>
+
 
 
 </html>
