@@ -4,7 +4,8 @@ var sessionId,token = null;
  var session= null;
 var API_SECRET ='5dd0e518687ab329f83e3ea978bf3677dad9d905';
 var API_KEY = '45502132';
-	
+var express = require('express');
+var app = express();
 var OpenTok = require('opentok'),
     opentok = new OpenTok(API_KEY, API_SECRET);
 
@@ -27,7 +28,7 @@ opentok.createSession({mediaMode:'routed', archiveMode:'always'}, function(err, 
 				
 				
 				
-				//console.log("first time creating session uper",sessionId);
+				console.log("first time creating session uper",sessionId);
 				return sessionId;
 			})
 
@@ -35,7 +36,7 @@ opentok.createSession({mediaMode:'routed', archiveMode:'always'}, function(err, 
 		// creating token
 	function enterSession(v) {			
 		token = opentok.generateToken(v);	
-		//console.log("first time creating token uper",token);			
+		console.log("first time creating token uper",token);			
 		return token;
 	}
 	
@@ -72,7 +73,7 @@ io.sockets.on('connection', function (socket) {
 // Passing token to the client side
 io.sockets.on('connection', function (socket) {
 	
-  //enterSession(sessionId);
+  ////enterSession(sessionId);
   socket.emit('token', {'Token':token }); // Send data to client
 
   // wait for the event raised by the client
@@ -83,16 +84,71 @@ io.sockets.on('connection', function (socket) {
 
 
 // Passing archive id to the client side
-io.sockets.on('archive', function (socket) {	
-  createArchiving(sessionId);
-  console.log("archiving=",sessionId);
-  socket.emit('archive', {'Archive':archiveId }); // Send data to client
+io.sockets.on('archiveStart', function (socket) {	
+  ///////////////////createArchiving(sessionId);
+  ///////////
+  opentok.startArchive(sessionId, { name: 'Important Presentation' }, function(err, archive) {
+	  if (err) {
+		return console.log("start=",err);
+	  } else {
+		// The id property is useful to save off into a database
+		console.log("new archive:" + archive.id);
+		archiveId = archive.id;				
+		  socket.emit('archiveStart', {'Archive':archiveId }); // Send data to client
 
-  // wait for the event raised by the client
-  socket.on('my other event', function (data) {  
-    console.log(data);
-  });
+		  // wait for the event raised by the client
+		  socket.on('my other event', function (data) {  
+			console.log(data);
+		  });
+	  }
+	});
+  
+  ///////////
+ 
 });
 
+
+
+// Passing archive id to the client side
+io.sockets.on('archiveStop', function (socket) {	
+  ///////////////////createArchiving(sessionId);
+  ///////////
+  opentok.startArchive(sessionId, { name: 'Important Presentation' }, function(err, archive) {
+	  if (err) {
+		return console.log("start=",err);
+	  } else {
+		// The id property is useful to save off into a database
+		console.log("new archive:" + archive.id);
+		archiveId = archive.id;				
+		  socket.emit('archiveStop', {'Archive':archiveId }); // Send data to client
+
+		  // wait for the event raised by the client
+		  socket.on('my other event', function (data) {  
+			console.log(data);
+		  });
+	  }
+	});
+  
+  ///////////
+ 
+});
+
+
+//Generating dynamic token
+
+app.get('/GenerateToken', function (req, res) {   
+	 console.log('calling generate token from node js!',sessionId);
+   res.end(enterSession(sessionId));
+})
+
+
+
+var server = app.listen(8081, function () {
+
+  var host = server.address().address
+  var port = server.address().port
+  console.log("Example app listening at http://%s:%s", host, port)
+
+})
 
 
